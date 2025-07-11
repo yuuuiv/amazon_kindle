@@ -7,5 +7,8 @@
 # Ignore all folders
 */
 
+# Ignore all .pdf files
+*.pdf
+
 # Optional: Ignore all files and folders recursively (if you want to ignore everything)
 # **

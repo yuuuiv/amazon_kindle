@@ -1,0 +1,11 @@
+# Ignore all .json files
+*.json
+
+# Ignore all .zip files
+*.zip
+
+# Ignore all folders
+*/
+
+# Optional: Ignore all files and folders recursively (if you want to ignore everything)
+# **

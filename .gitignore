@@ -1,14 +1,25 @@
-# Ignore all .json files
-*.json
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
 
-# Ignore all .zip files
-*.zip
+# Local authentication and generated output
+kindle_cookies.json
+original_images/
+merged/
+artifacts/
+*.egg-info/
 
-# Ignore all folders
-*/
+# Local browser binaries
+chromedriver.exe
+chromedriver-*.zip
+driver_unpack/
 
-# Ignore all .pdf files
-*.pdf
-
-# Optional: Ignore all files and folders recursively (if you want to ignore everything)
-# **
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amazon-kindle-reader"
+version = "0.1.0"
+description = "Capture and merge pages displayed by Kindle Cloud Reader for authorized personal use."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = ["Pillow>=10.0", "selenium>=4.15"]
+
+[project.scripts]
+kindle-capture = "amazon_kindle.cli:capture_command"
+kindle-merge = "amazon_kindle.cli:merge_command"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+amazon_kindle = ["assets/*.js"]

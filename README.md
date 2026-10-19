@@ -1,120 +1,151 @@
-# Kindle Cloud Reader — 图像抓取与拼接工具
+# Amazon Kindle Reader
 
-> 通过 Selenium 自动化抓取 Kindle Cloud Reader 中的书籍页面图像，并将上下半页拼接为完整页面，方便个人已购内容的本地备份与离线阅读。
+用于在获得授权的前提下，从 Kindle Cloud Reader 保存当前书籍显示的页面资源，并按需横向拼接两张页面图。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+项目使用 Selenium 控制 Chrome，使用 Pillow 校验和拼接图片。抓取器读取阅读器显示页关联的原始图片资源，不导出浏览器截图，也不重新编码图片。
 
----
+## 功能
 
-## 功能特性
+- 手动登录 Amazon 后保存 Cookie，后续运行可尝试恢复登录状态
+- 等待阅读器页面稳定后保存图片，并记录页码、尺寸、格式和 SHA-256
+- 按阅读器的“下一页”按钮自动翻页，直到按钮不可用或页面不再变化
+- 通过图像哈希去重，同时保留 `manifest.json` 中的阅读器位置
+- 将任意两张页面图片无损横向拼接为 PNG
+- 支持命令行安装，也保留根目录 Python 兼容入口
 
-- **自动抓取** — 自动识别 Kindle Cloud Reader iframe 中内嵌的 base64 图像并保存为 JPG
-- **上下拼接** — 将 Kindle 分半页显示的上下两部分合并为一页完整图像
-- **去重机制** — 基于图像哈希的去重，避免重复保存相同页面
-- **自动翻页** — 模拟键盘方向键自动翻页，逐页抓取直至末尾
-- **Cookie 持久化** — 首次手动登录后自动保存 Cookie，后续运行可免登录
-- **结构化输出** — 图像按页码编号保存，目录结构清晰
+## 前置条件
 
----
+- Python `>= 3.10`
+- Google Chrome
+- 与 Chrome 主版本匹配的 ChromeDriver；也可以通过 `--driver` 显式指定路径
+- 你对目标内容拥有复制权或已获得相应授权
 
-## 环境要求
+## 安装
 
-| 依赖 | 说明 |
-|------|------|
-| Python 3.8+ | 脚本运行环境 |
-| Google Chrome | 浏览器 |
-| ChromeDriver | 与 Chrome 版本匹配的 WebDriver |
-
-### 安装 Python 依赖
+在仓库根目录执行：
 
 ```bash
-pip install selenium pillow
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux
+# source .venv/bin/activate
+
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
 
-### 安装 ChromeDriver
-
-1. 检查 Chrome 版本：在地址栏输入 `chrome://version/`
-2. 从 [ChromeDriver 下载页](https://chromedriver.chromium.org/downloads) 下载匹配版本
-3. 将 `chromedriver` 可执行文件所在目录添加至系统 `PATH`
-
----
+依赖由 `pyproject.toml` 管理，包含 `selenium` 和 `Pillow`。
 
 ## 快速开始
 
-### 第一步：抓取图像
+### 抓取页面
 
 ```bash
-python kindle_cramp.py
+kindle-capture --driver C:\tools\chromedriver.exe
 ```
 
-运行流程：
+程序会打开 Kindle Cloud Reader。完成登录并进入书籍阅读页后，在终端按回车；接着切换到单页模式、跳到希望的起始页，再按回车开始抓取。
 
-1. 自动打开 Chrome 并跳转至 [Kindle Cloud Reader](https://read.amazon.co.jp/kindle-library)
-2. 在浏览器中手动登录你的 Amazon 账户
-3. 点击任意一本书籍进入阅读界面，然后在终端按 `Enter` 继续
-4. 脚本将自动抓取当前可见页面的图像，并模拟「→」方向键翻页
-5. 图像保存至 `images/` 目录，格式为 `page_0001_1.jpg`、`page_0001_2.jpg` …
+默认输出到由 `--output-dir` 指定的会话目录。每次会话包含 `page_0001.jpg` 这类图片和 `manifest.json`。Cookie 默认保存到一个名为 `kindle_cookies.json` 的文件，该文件已被 `.gitignore` 忽略。
 
-> 首次登录后，Cookie 将自动保存至 `kindle_cookies.json`，下次运行可跳过登录。
-
-### 第二步：拼接图像
+也可以指定阅读器 URL、输出目录和 Cookie 文件：
 
 ```bash
-python image_merge.py
+kindle-capture --url "https://read.amazon.co.jp/kindle-library" --output-dir artifacts/original_images --cookie-file artifacts/kindle_cookies.json --driver C:\tools\chromedriver.exe
 ```
 
-脚本会扫描 `images/` 中的所有半页图像对，将其上下拼接为完整页面，输出至 `merged/` 目录，如 `page_0001.jpg`。
+### 拼接页面
 
----
+指定左页和右页的编号：
+
+```bash
+kindle-merge 2 3
+```
+
+默认选择 `original_images` 中最近一次包含页面图片的会话，输出到 `merged` 下的会话目录。需要固定输入目录时：
+
+```bash
+kindle-merge 2 3 --input-dir original_images/20260101_120000 --output-dir artifacts/merged
+```
+
+## 命令和参数
+
+### `kindle-capture`
+
+| 参数 | 默认值 | 作用 |
+| --- | --- | --- |
+| `--url` | `https://read.amazon.co.jp/kindle-library` | 启动时打开的 Kindle 页面 |
+| `--output-dir` | `original_images` | 会话目录的父目录 |
+| `--cookie-file` | `kindle_cookies.json` | Cookie 保存位置 |
+| `--driver` | 自动发现 | ChromeDriver 可执行文件路径 |
+
+### `kindle-merge`
+
+| 参数 | 作用 |
+| --- | --- |
+| `PAGE PAGE` | 两个正整数页码，第一个放左侧 |
+| `--input-dir` | 页面图片目录；省略时选择最近会话 |
+| `--output-dir` | 输出根目录；省略时使用 `merged` |
 
 ## 项目结构
 
-```
+```text
 amazon_kindle/
-├── kindle_cramp.py          # 图像抓取脚本
-├── image_merge.py           # 图像拼接脚本
-├── kindle_cookies.json      # 登录 Cookie（自动生成）
-├── images/                  # 原始半页图像（自动生成）
-│   ├── page_0001_1.jpg
-│   ├── page_0001_2.jpg
-│   └── …
-├── merged/                  # 拼接后的完整页面（自动生成）
-│   ├── page_0001.jpg
-│   └── …
+├── src/amazon_kindle/
+│   ├── assets/capture_sources.js  # 阅读器资源来源追踪脚本
+│   ├── capture.py                 # Chrome 会话和自动翻页
+│   ├── cli.py                     # kindle-capture / kindle-merge 入口
+│   ├── config.py                  # 默认路径和抓取配置
+│   ├── cookies.py                 # Cookie 读写和域名过滤
+│   ├── merge.py                   # 页面查找和横向拼接
+│   └── resources.py               # 原始图片资源读取、校验和 manifest
+├── kindle_cramp.py                # 兼容旧命令的抓取入口
+├── image_merge.py                 # 兼容旧命令的拼接入口
+├── pyproject.toml                 # 包元数据、依赖和 console scripts
 ├── LICENSE
 └── README.md
 ```
 
----
+运行时生成的 `original_images/`、`merged/`、Cookie 和 ChromeDriver 不应提交到仓库。
 
-## 配置说明
+## 兼容旧入口
 
-如需修改默认配置，可在 `kindle_cramp.py` 顶部调整以下变量：
+如果暂时不安装包，仍可从根目录运行：
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `SAVE_DIR` | `"images"` | 抓取图像的保存目录 |
-| `COOKIE_PATH` | `"kindle_cookies.json"` | Cookie 持久化文件路径 |
-| `MAX_FAILS` | `3` | 连续未检测到新图像的最大次数，超过即视为已到末页 |
+```bash
+python kindle_cramp.py
+python image_merge.py 2 3
+```
 
----
+兼容入口会从 `src/` 加载同一套实现，避免维护两份逻辑。
 
-## 免责声明
+## 测试
 
-- **本工具仅供个人已购内容的合理备份与离线阅读使用。**
-- **严禁将抓取的任何内容用于传播、分发或商业用途。**
-- 使用者应遵守 Amazon Kindle 服务条款及相关法律法规，自行承担使用本工具的全部责任。
-- 若抓取的图像不完整或有缺失，请在 Kindle Cloud Reader 中切换为「单页模式」后重试。
+编译检查所有 Python 模块：
 
----
+```bash
+python -m compileall src kindle_cramp.py image_merge.py
+```
+
+检查命令行帮助：
+
+```bash
+python -m amazon_kindle.cli --help
+```
+
+当前仓库没有单独的测试套件或代码格式化配置。新增功能时应优先为 `src/amazon_kindle/` 中的纯函数补充测试。
+
+## 数据和安全
+
+- `kindle_cookies.json` 包含登录会话信息，只应保存在本机，不要提交或分享。
+- 抓取输出可能包含受版权保护的内容，请遵守 Amazon 服务条款和适用法律。
+- 本项目只读取阅读器已经加载的页面资源，不提供购买限制、登录验证或访问控制绕过功能。
 
 ## 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+项目使用 [MIT License](LICENSE)。
 
----
+## 维护 README
 
-## 贡献与反馈
-
-欢迎提交 [Issue](https://github.com/yuuuiv/amazon_kindle/issues) 报告问题或提出功能建议。Pull Request 同样欢迎。
+当命令入口、配置参数、输出目录、资源注入脚本位置或 Python/Chrome 依赖发生变化时，请同步更新本 README。
